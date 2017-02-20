@@ -156,15 +156,6 @@ interface AssetManager
     public function findAssetMappings(Expression $expr);
 
     /**
-     * Returns whether an asset mapping with the given UUID exists.
-     *
-     * @param Uuid $uuid The UUID of the mapping.
-     *
-     * @return bool Returns `true` if the UUID exists.
-     */
-    public function hasAssetMapping(Uuid $uuid);
-
-    /**
      * Returns whether any asset mappings exist.
      *
      * You can optionally pass an expression to check whether the manager has

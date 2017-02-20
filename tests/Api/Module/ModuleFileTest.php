@@ -13,11 +13,11 @@ namespace Puli\Manager\Tests\Api\Module;
 
 use PHPUnit_Framework_TestCase;
 use Puli\Discovery\Binding\ClassBinding;
-use Puli\Discovery\Binding\ResourceBinding;
 use Puli\Manager\Api\Discovery\BindingDescriptor;
 use Puli\Manager\Api\Module\ModuleFile;
 use Puli\Manager\Api\Repository\PathMapping;
 use Puli\Manager\Tests\Discovery\Fixtures\Foo;
+use Puli\Repository\Discovery\ResourceBinding;
 use Rhumsaa\Uuid\Uuid;
 
 /**
@@ -238,7 +238,7 @@ class ModuleFileTest extends PHPUnit_Framework_TestCase
         $moduleFile = new ModuleFile();
         $moduleFile->addBindingDescriptor($descriptor);
 
-        $this->assertSame($descriptor, $moduleFile->getBindingDescriptor($binding->getUuid()));
+        $this->assertSame($descriptor, $moduleFile->getBindingDescriptor($binding));
         $this->assertSame(array($descriptor), $moduleFile->getBindingDescriptors());
     }
 
@@ -252,7 +252,7 @@ class ModuleFileTest extends PHPUnit_Framework_TestCase
         $moduleFile = new ModuleFile();
         $moduleFile->addBindingDescriptor($descriptor1);
         $moduleFile->addBindingDescriptor($descriptor2);
-        $moduleFile->removeBindingDescriptor($binding1->getUuid());
+        $moduleFile->removeBindingDescriptor($binding1);
 
         $this->assertSame(array($descriptor2), $moduleFile->getBindingDescriptors());
     }
@@ -264,19 +264,19 @@ class ModuleFileTest extends PHPUnit_Framework_TestCase
 
         $moduleFile = new ModuleFile();
 
-        $this->assertFalse($moduleFile->hasBindingDescriptor($binding->getUuid()));
+        $this->assertFalse($moduleFile->hasBindingDescriptor($binding));
         $moduleFile->addBindingDescriptor($descriptor);
-        $this->assertTrue($moduleFile->hasBindingDescriptor($binding->getUuid()));
+        $this->assertTrue($moduleFile->hasBindingDescriptor($binding));
     }
 
     /**
      * @expectedException \Puli\Manager\Api\Discovery\NoSuchBindingException
-     * @expectedExceptionMessage 8546da2c-dfec-48be-8cd3-93798c41b72f
      */
-    public function testGetBindingDescriptorFailsIfUnknownUuid()
+    public function testGetBindingDescriptorFailsIfUnknown()
     {
         $moduleFile = new ModuleFile();
-        $moduleFile->getBindingDescriptor(Uuid::fromString('8546da2c-dfec-48be-8cd3-93798c41b72f'));
+        $binding = new ClassBinding(__CLASS__, Foo::clazz);
+        $moduleFile->getBindingDescriptor($binding);
     }
 
     public function testSetExtraKey()

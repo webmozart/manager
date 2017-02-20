@@ -1,5 +1,4 @@
 <?php
-
 /*
  * This file is part of the puli/manager package.
  *
@@ -8,33 +7,32 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-
-namespace Puli\Manager\Api\Asset;
-
+namespace Puli\Manager\Api\Discovery;
 use Exception;
-use Rhumsaa\Uuid\Uuid;
+use Puli\Discovery\Api\Binding\Binding;
+use RuntimeException;
 
 /**
- * Thrown when an asset mapping exists already.
+ * Thrown when a binding was not found.
  *
  * @since  1.0
  *
  * @author Bernhard Schussek <bschussek@gmail.com>
  */
-class DuplicateAssetMappingException extends Exception
+class NoSuchBindingException extends RuntimeException
 {
     /**
-     * Creates an exception for a AssetMapping that exists already.
+     * Creates an exception for when a Binding that was not found.
      *
-     * @param AssetMapping   $mapping
+     * @param Binding        $binding
      * @param Exception|null $cause The exception that caused this exception.
      *
      * @return static The created exception.
      */
-    public static function forMapping(AssetMapping $mapping, Exception $cause = null)
+    public static function forBinding(Binding $binding, Exception $cause = null)
     {
         return new static(
-            sprintf('The asset mapping for (glob: "%s" and serverName: "%s") exists already.', $mapping->getGlob(), $mapping->getServerName()),
+            sprintf('The binding for type "%s" does not exist.', $binding->getTypeName()),
             0,
             $cause
         );
