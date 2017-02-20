@@ -11,7 +11,6 @@
 
 namespace Puli\Manager\Asset;
 
-use Puli\Discovery\Binding\ResourceBinding;
 use Puli\Manager\Api\Asset\AssetManager;
 use Puli\Manager\Api\Asset\AssetMapping;
 use Puli\Manager\Api\Asset\DuplicateAssetMappingException;
@@ -23,6 +22,7 @@ use Puli\Manager\Api\Event\PuliEvents;
 use Puli\Manager\Api\Event\RemoveAssetMappingEvent;
 use Puli\Manager\Api\Server\NoSuchServerException;
 use Puli\Manager\Api\Server\ServerCollection;
+use Puli\Repository\Discovery\ResourceBinding;
 use Puli\UrlGenerator\DiscoveryUrlGenerator;
 use Rhumsaa\Uuid\Uuid;
 use RuntimeException;
@@ -85,8 +85,10 @@ class DiscoveryAssetManager implements AssetManager
             throw NoSuchServerException::forServerName($mapping->getServerName());
         }
 
-        if (!($flags & self::OVERRIDE) && $this->hasAssetMapping($mapping->getUuid())) {
-            throw DuplicateAssetMappingException::forUuid($mapping->getUuid());
+        $exr = Expr::method('getGlob', Expr::same($mapping->getGlob()))
+            ->andMethod('getServerName', Expr::same($mapping->getServerName()));
+        if (!($flags & self::OVERRIDE) && $this->hasAssetMappings($exr)) {
+            throw DuplicateAssetMappingException::forMapping($mapping);
         }
 
         $binding = new ResourceBinding(
@@ -97,8 +99,7 @@ class DiscoveryAssetManager implements AssetManager
                 DiscoveryUrlGenerator::SERVER_PARAMETER => $mapping->getServerName(),
                 DiscoveryUrlGenerator::PATH_PARAMETER => $mapping->getServerPath(),
             ),
-            'glob',
-            $mapping->getUuid()
+            'glob'
         );
 
         $this->discoveryManager->addRootBindingDescriptor(
@@ -289,17 +290,6 @@ class DiscoveryAssetManager implements AssetManager
     /**
      * {@inheritdoc}
      */
-    public function hasAssetMapping(Uuid $uuid)
-    {
-        $expr = Expr::method('getUuid', Expr::method('toString', Expr::same($uuid->toString())))
-            ->andX($this->exprBuilder->buildExpression());
-
-        return $this->discoveryManager->hasBindingDescriptors($expr);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function hasAssetMappings(Expression $expr = null)
     {
         return $this->discoveryManager->hasBindingDescriptors($this->exprBuilder->buildExpression($expr));
@@ -311,8 +301,7 @@ class DiscoveryAssetManager implements AssetManager
             // Remove "{,/**/*}" suffix
             substr($binding->getQuery(), 0, -8),
             $binding->getParameterValue(DiscoveryUrlGenerator::SERVER_PARAMETER),
-            $binding->getParameterValue(DiscoveryUrlGenerator::PATH_PARAMETER),
-            $binding->getUuid()
+            $binding->getParameterValue(DiscoveryUrlGenerator::PATH_PARAMETER)
         );
     }
 }

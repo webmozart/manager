@@ -24,18 +24,18 @@ use Rhumsaa\Uuid\Uuid;
 class NoSuchAssetMappingException extends Exception
 {
     /**
-     * Creates an exception for a UUID that was not found.
+     * Creates an exception for a AssetMapping that was not found.
      *
-     * @param Uuid           $uuid  The UUID of the mapping.
+     * @param AssetMapping   $mapping
      * @param Exception|null $cause The exception that caused this exception.
      *
      * @return static The created exception.
      */
-    public static function forUuid(Uuid $uuid, Exception $cause = null)
+    public static function forMapping(AssetMapping $mapping, Exception $cause = null)
     {
         return new static(sprintf(
-            'The asset mapping "%s" does not exist.',
-            $uuid->toString()
+            'The asset mapping (glob: "%s" and serverName: "%s") does not exist.',
+            $mapping->getGlob(), $mapping->getServerName()
         ), 0, $cause);
     }
 }
