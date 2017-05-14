@@ -14,13 +14,12 @@ namespace Puli\Manager\Module;
 use Puli\Discovery\Api\Type\BindingParameter;
 use Puli\Discovery\Api\Type\BindingType;
 use Puli\Discovery\Binding\ClassBinding;
-use Puli\Discovery\Binding\ResourceBinding;
 use Puli\Manager\Api\Discovery\BindingDescriptor;
 use Puli\Manager\Api\Discovery\BindingTypeDescriptor;
 use Puli\Manager\Api\Module\ModuleFile;
 use Puli\Manager\Api\Repository\PathMapping;
 use Puli\Manager\Assert\Assert;
-use Rhumsaa\Uuid\Uuid;
+use Puli\Repository\Discovery\ResourceBinding;
 use stdClass;
 use Webmozart\Json\Conversion\JsonConverter;
 use Webmozart\Json\Versioning\JsonVersioner;
@@ -67,7 +66,7 @@ class ModuleFileConverter implements JsonConverter
     public static function compareBindingDescriptors(BindingDescriptor $a, BindingDescriptor $b)
     {
         // Make sure that bindings are always printed in the same order
-        return strcmp($a->getUuid()->toString(), $b->getUuid()->toString());
+        return strcmp($a->getTypeName(), $b->getTypeName());
     }
 
     /**
@@ -142,6 +141,7 @@ class ModuleFileConverter implements JsonConverter
             uasort($bindingDescriptors, array(__CLASS__, 'compareBindingDescriptors'));
 
             $jsonData->bindings = new stdClass();
+            $i = 0;
 
             foreach ($bindingDescriptors as $bindingDescriptor) {
                 $binding = $bindingDescriptor->getBinding();
@@ -169,7 +169,7 @@ class ModuleFileConverter implements JsonConverter
                     $bindingData->parameters = (object) $parameterData;
                 }
 
-                $jsonData->bindings->{$bindingDescriptor->getUuid()->toString()} = $bindingData;
+                $jsonData->bindings->{$i++} = $bindingData;
             }
         }
 
@@ -239,8 +239,9 @@ class ModuleFileConverter implements JsonConverter
             }
         }
 
+        $class = 'Puli\Repository\Discovery\ResourceBinding';
         if (isset($jsonData->bindings)) {
-            foreach ($jsonData->bindings as $uuid => $bindingData) {
+            foreach ($jsonData->bindings as $bindingData) {
                 $binding = null;
                 $class = isset($bindingData->_class)
                     ? $bindingData->_class
@@ -253,8 +254,7 @@ class ModuleFileConverter implements JsonConverter
                         $binding = new ClassBinding(
                             $bindingData->class,
                             $bindingData->type,
-                            isset($bindingData->parameters) ? (array) $bindingData->parameters : array(),
-                            Uuid::fromString($uuid)
+                            isset($bindingData->parameters) ? (array) $bindingData->parameters : array()
                         );
                         break;
                     case 'Puli\Discovery\Binding\ResourceBinding':
@@ -262,8 +262,7 @@ class ModuleFileConverter implements JsonConverter
                             $bindingData->query,
                             $bindingData->type,
                             isset($bindingData->parameters) ? (array) $bindingData->parameters : array(),
-                            isset($bindingData->language) ? $bindingData->language : 'glob',
-                            Uuid::fromString($uuid)
+                            isset($bindingData->language) ? $bindingData->language : 'glob'
                         );
                         break;
                     default:
@@ -296,7 +295,7 @@ class ModuleFileConverter implements JsonConverter
                 }
 
                 $moduleFile->addTypeDescriptor(new BindingTypeDescriptor(
-                    new BindingType($typeName, $parameters),
+                    new BindingType($typeName, $class, $parameters),
                     isset($data->description) ? $data->description : null,
                     $parameterDescriptions
                 ));
