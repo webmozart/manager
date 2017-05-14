@@ -16,7 +16,6 @@ use PHPUnit_Framework_TestCase;
 use Puli\Discovery\Api\Type\BindingParameter;
 use Puli\Discovery\Api\Type\BindingType;
 use Puli\Discovery\Binding\ClassBinding;
-use Puli\Discovery\Binding\ResourceBinding;
 use Puli\Manager\Api\Config\Config;
 use Puli\Manager\Api\Discovery\BindingDescriptor;
 use Puli\Manager\Api\Discovery\BindingTypeDescriptor;
@@ -28,6 +27,7 @@ use Puli\Manager\Module\ModuleFileConverter;
 use Puli\Manager\Tests\Discovery\Fixtures\Bar;
 use Puli\Manager\Tests\Discovery\Fixtures\Baz;
 use Puli\Manager\Tests\Discovery\Fixtures\Foo;
+use Puli\Repository\Discovery\ResourceBinding;
 use Rhumsaa\Uuid\Uuid;
 use Webmozart\Json\Versioning\JsonVersioner;
 
@@ -38,14 +38,6 @@ use Webmozart\Json\Versioning\JsonVersioner;
  */
 class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 {
-    const BINDING_UUID1 = '2438256b-c2f5-4a06-a18f-f79755e027dd';
-
-    const BINDING_UUID2 = 'ff7bbf5a-44b1-4bdb-8397-e1c601ad7a2e';
-
-    const BINDING_UUID3 = '93fdf1a4-45b3-4a4e-80b5-77dc1137f5ae';
-
-    const BINDING_UUID4 = 'd939ea88-01a0-4c7b-8d1e-e0dfcffd66e5';
-
     /**
      * @var Config
      */
@@ -70,12 +62,12 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
     public function testToJson()
     {
-        $type = new BindingType(Foo::clazz, array(
+        $resourceBinding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob');
+        $classBinding = new ClassBinding(__CLASS__, Bar::clazz, array());
+
+        $type = new BindingType(Foo::clazz, get_class($resourceBinding), array(
             new BindingParameter('param', BindingParameter::OPTIONAL, 1234),
         ));
-
-        $resourceBinding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob', Uuid::fromString(self::BINDING_UUID1));
-        $classBinding = new ClassBinding(__CLASS__, Bar::clazz, array(), Uuid::fromString(self::BINDING_UUID2));
 
         $moduleFile = new ModuleFile();
         $moduleFile->setModuleName('my/application');
@@ -98,15 +90,15 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
                 '/app' => 'res',
             ),
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
-                    'query' => '/app/config*.yml',
-                    'type' => Foo::clazz,
-                ),
-                self::BINDING_UUID2 => (object) array(
+                0 => (object) array(
                     '_class' => 'Puli\Discovery\Binding\ClassBinding',
                     'class' => __CLASS__,
                     'type' => Bar::clazz,
+                ),
+                1 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
+                    'query' => '/app/config*.yml',
+                    'type' => Foo::clazz,
                 ),
             ),
             'binding-types' => (object) array(
@@ -137,14 +129,15 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
         $moduleFile = new ModuleFile();
         $module = new Module($moduleFile, '/path', new InstallInfo('vendor/module', '/path'));
 
+        $binding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob');
+
         // We need to create a type and a binding in state ENABLED
-        $type = new BindingType(Foo::clazz, array(
+        $type = new BindingType(Foo::clazz, get_class($binding), array(
             new BindingParameter('param', BindingParameter::OPTIONAL, 'default'),
         ));
         $typeDescriptor = new BindingTypeDescriptor($type);
         $typeDescriptor->load($module);
 
-        $binding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob', Uuid::fromString(self::BINDING_UUID1));
         $bindingDescriptor = new BindingDescriptor($binding);
         $bindingDescriptor->load($module, $typeDescriptor);
 
@@ -157,8 +150,8 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
         $jsonData = (object) array(
             '$schema' => 'http://puli.io/schema/2.0/manager/module',
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
+                0 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
                     'query' => '/app/config*.yml',
                     'type' => Foo::clazz,
                 ),
@@ -190,9 +183,9 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
     public function testToJsonSortsTypes()
     {
         $moduleFile = new ModuleFile();
-        $moduleFile->addTypeDescriptor(new BindingTypeDescriptor(new BindingType(Baz::clazz)));
-        $moduleFile->addTypeDescriptor(new BindingTypeDescriptor(new BindingType(Foo::clazz)));
-        $moduleFile->addTypeDescriptor(new BindingTypeDescriptor(new BindingType(Bar::clazz)));
+        $moduleFile->addTypeDescriptor(new BindingTypeDescriptor(new BindingType(Baz::clazz, ResourceBinding::class)));
+        $moduleFile->addTypeDescriptor(new BindingTypeDescriptor(new BindingType(Foo::clazz, ResourceBinding::class)));
+        $moduleFile->addTypeDescriptor(new BindingTypeDescriptor(new BindingType(Bar::clazz, ResourceBinding::class)));
 
         $jsonData = (object) array(
             '$schema' => 'http://puli.io/schema/2.0/manager/module',
@@ -208,7 +201,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
     public function testToJsonSortsTypeParameters()
     {
-        $type = new BindingType(Foo::clazz, array(
+        $type = new BindingType(Foo::clazz, ResourceBinding::class, array(
             new BindingParameter('c'),
             new BindingParameter('a'),
             new BindingParameter('b'),
@@ -235,10 +228,10 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
     public function testToJsonSortsBindings()
     {
-        $binding1 = new ResourceBinding('/vendor/c', Foo::clazz, array(), 'glob', Uuid::fromString(self::BINDING_UUID1));
-        $binding2 = new ResourceBinding('/vendor/a', Bar::clazz, array(), 'glob', Uuid::fromString(self::BINDING_UUID2));
-        $binding3 = new ResourceBinding('/vendor/b', Foo::clazz, array(), 'glob', Uuid::fromString(self::BINDING_UUID3));
-        $binding4 = new ClassBinding(__CLASS__, Bar::clazz, array(), Uuid::fromString(self::BINDING_UUID4));
+        $binding1 = new ResourceBinding('/vendor/c', Foo::clazz, array(), 'glob');
+        $binding2 = new ResourceBinding('/vendor/a', Bar::clazz, array(), 'glob');
+        $binding3 = new ResourceBinding('/vendor/b', Foo::clazz, array(), 'glob');
+        $binding4 = new ClassBinding(__CLASS__, Bar::clazz, array());
 
         $moduleFile = new ModuleFile();
         $moduleFile->addBindingDescriptor(new BindingDescriptor($binding1));
@@ -250,25 +243,25 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
         $jsonData = (object) array(
             '$schema' => 'http://puli.io/schema/2.0/manager/module',
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
-                    'query' => '/vendor/c',
-                    'type' => Foo::clazz,
+                0 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
+                    'query' => '/vendor/a',
+                    'type' => Bar::clazz,
                 ),
-                self::BINDING_UUID3 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
-                    'query' => '/vendor/b',
-                    'type' => Foo::clazz,
-                ),
-                self::BINDING_UUID4 => (object) array(
+                1 => (object) array(
                     '_class' => 'Puli\Discovery\Binding\ClassBinding',
                     'class' => __CLASS__,
                     'type' => Bar::clazz,
                 ),
-                self::BINDING_UUID2 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
-                    'query' => '/vendor/a',
-                    'type' => Bar::clazz,
+                2 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
+                    'query' => '/vendor/c',
+                    'type' => Foo::clazz,
+                ),
+                3 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
+                    'query' => '/vendor/b',
+                    'type' => Foo::clazz,
                 ),
             ),
         );
@@ -282,7 +275,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
             'c' => 'foo',
             'a' => 'foo',
             'b' => 'foo',
-        ), 'glob', Uuid::fromString(self::BINDING_UUID1));
+        ), 'glob');
 
         $moduleFile = new ModuleFile();
         $moduleFile->addBindingDescriptor(new BindingDescriptor($binding));
@@ -290,8 +283,8 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
         $jsonData = (object) array(
             '$schema' => 'http://puli.io/schema/2.0/manager/module',
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
+                0 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
                     'query' => '/path',
                     'type' => Foo::clazz,
                     'parameters' => (object) array(
@@ -308,7 +301,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
     public function testToJsonBindingWithCustomLanguage()
     {
-        $binding = new ResourceBinding('//resource[name="config.yml"]', Foo::clazz, array(), 'xpath', Uuid::fromString(self::BINDING_UUID1));
+        $binding = new ResourceBinding('//resource[name="config.yml"]', Foo::clazz, array(), 'xpath');
 
         $moduleFile = new ModuleFile();
         $moduleFile->addBindingDescriptor(new BindingDescriptor($binding));
@@ -316,8 +309,8 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
         $jsonData = (object) array(
             '$schema' => 'http://puli.io/schema/2.0/manager/module',
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
+                0 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
                     'query' => '//resource[name="config.yml"]',
                     'language' => 'xpath',
                     'type' => Foo::clazz,
@@ -332,7 +325,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
     {
         $baseConfig = new Config();
         $moduleFile = new ModuleFile(null, null, $baseConfig);
-        $moduleFile->addTypeDescriptor(new BindingTypeDescriptor(new BindingType(Foo::clazz)));
+        $moduleFile->addTypeDescriptor(new BindingTypeDescriptor(new BindingType(Foo::clazz, ResourceBinding::class)));
 
         $jsonData = (object) array(
             '$schema' => 'http://puli.io/schema/2.0/manager/module',
@@ -346,7 +339,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
     public function testToJsonTypeParameterWithoutDescriptionNorParameters()
     {
-        $type = new BindingType(Foo::clazz, array(
+        $type = new BindingType(Foo::clazz, ResourceBinding::class, array(
             new BindingParameter('param', BindingParameter::OPTIONAL, 1234),
         ));
 
@@ -371,7 +364,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
     public function testToJsonTypeParameterWithoutDefaultValue()
     {
-        $type = new BindingType(Foo::clazz, array(
+        $type = new BindingType(Foo::clazz, ResourceBinding::class, array(
             new BindingParameter('param', BindingParameter::OPTIONAL),
         ));
 
@@ -398,7 +391,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
     public function testToJsonRequiredTypeParameter()
     {
-        $type = new BindingType(Foo::clazz, array(
+        $type = new BindingType(Foo::clazz, ResourceBinding::class, array(
             new BindingParameter('param', BindingParameter::REQUIRED),
         ));
 
@@ -460,15 +453,15 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
                 '/app' => 'res',
             ),
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
-                    'query' => '/app/config*.yml',
-                    'type' => Foo::clazz,
-                ),
-                self::BINDING_UUID2 => (object) array(
+                0 => (object) array(
                     '_class' => 'Puli\Discovery\Binding\ClassBinding',
                     'class' => __CLASS__,
                     'type' => Bar::clazz,
+                ),
+                1 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
+                    'query' => '/app/config*.yml',
+                    'type' => Foo::clazz,
                 ),
             ),
             'binding-types' => (object) array(
@@ -500,12 +493,12 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
             'path' => '/path',
         ));
 
-        $type = new BindingType(Foo::clazz, array(
+        $type = new BindingType(Foo::clazz, ResourceBinding::class, array(
             new BindingParameter('param', BindingParameter::OPTIONAL, 1234),
         ));
 
-        $resourceBinding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob', Uuid::fromString(self::BINDING_UUID1));
-        $classBinding = new ClassBinding(__CLASS__, Bar::clazz, array(), Uuid::fromString(self::BINDING_UUID2));
+        $resourceBinding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob');
+        $classBinding = new ClassBinding(__CLASS__, Bar::clazz, array());
 
         $this->assertInstanceOf('Puli\Manager\Api\Module\ModuleFile', $moduleFile);
         $this->assertNotInstanceOf('Puli\Manager\Api\Module\RootModuleFile', $moduleFile);
@@ -577,7 +570,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
         $moduleFile = $this->converter->fromJson($jsonData);
 
-        $type = new BindingType(Foo::clazz, array(
+        $type = new BindingType(Foo::clazz, ResourceBinding::class, array(
             new BindingParameter('param', BindingParameter::REQUIRED),
         ));
 
@@ -589,7 +582,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
     {
         $jsonData = (object) array(
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
+                0 => (object) array(
                     'query' => '/path',
                     'type' => Foo::clazz,
                     'parameters' => (object) array(
@@ -606,7 +599,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
         $moduleFile = $this->converter->fromJson($jsonData);
 
-        $binding = new ResourceBinding('/path', Foo::clazz, array('param' => 'value'), 'glob', Uuid::fromString(self::BINDING_UUID1));
+        $binding = new ResourceBinding('/path', Foo::clazz, array('param' => 'value'), 'glob');
 
         $this->assertInstanceOf('Puli\Manager\Api\Module\ModuleFile', $moduleFile);
         $this->assertEquals(array(new BindingDescriptor($binding)), $moduleFile->getBindingDescriptors());
@@ -616,7 +609,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
     {
         $jsonData = (object) array(
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
+                0 => (object) array(
                     'query' => '//resource[name="config.yml"]',
                     'language' => 'xpath',
                     'type' => Foo::clazz,
@@ -631,7 +624,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
         $moduleFile = $this->converter->fromJson($jsonData);
 
-        $binding = new ResourceBinding('//resource[name="config.yml"]', Foo::clazz, array(), 'xpath', Uuid::fromString(self::BINDING_UUID1));
+        $binding = new ResourceBinding('//resource[name="config.yml"]', Foo::clazz, array(), 'xpath');
 
         $this->assertInstanceOf('Puli\Manager\Api\Module\ModuleFile', $moduleFile);
         $this->assertEquals(array(new BindingDescriptor($binding)), $moduleFile->getBindingDescriptors());
@@ -641,8 +634,8 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
     {
         $jsonData = (object) array(
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
+                0 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
                     'query' => '/path',
                     'type' => Foo::clazz,
                 ),
@@ -656,7 +649,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
         $moduleFile = $this->converter->fromJson($jsonData);
 
-        $binding = new ResourceBinding('/path', Foo::clazz, array(), 'glob', Uuid::fromString(self::BINDING_UUID1));
+        $binding = new ResourceBinding('/path', Foo::clazz, array(), 'glob');
 
         $this->assertInstanceOf('Puli\Manager\Api\Module\ModuleFile', $moduleFile);
         $this->assertEquals(array(new BindingDescriptor($binding)), $moduleFile->getBindingDescriptors());
@@ -666,7 +659,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
     {
         $jsonData = (object) array(
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
+                0 => (object) array(
                     '_class' => 'Puli\Discovery\Binding\ClassBinding',
                     'class' => __CLASS__,
                     'type' => Foo::clazz,
@@ -681,7 +674,7 @@ class ModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
         $moduleFile = $this->converter->fromJson($jsonData);
 
-        $binding = new ClassBinding(__CLASS__, Foo::clazz, array(), Uuid::fromString(self::BINDING_UUID1));
+        $binding = new ClassBinding(__CLASS__, Foo::clazz, array());
 
         $this->assertInstanceOf('Puli\Manager\Api\Module\ModuleFile', $moduleFile);
         $this->assertEquals(array(new BindingDescriptor($binding)), $moduleFile->getBindingDescriptors());

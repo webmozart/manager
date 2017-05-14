@@ -16,7 +16,6 @@ use PHPUnit_Framework_TestCase;
 use Puli\Discovery\Api\Type\BindingParameter;
 use Puli\Discovery\Api\Type\BindingType;
 use Puli\Discovery\Binding\ClassBinding;
-use Puli\Discovery\Binding\ResourceBinding;
 use Puli\Manager\Api\Config\Config;
 use Puli\Manager\Api\Container;
 use Puli\Manager\Api\Discovery\BindingDescriptor;
@@ -29,6 +28,7 @@ use Puli\Manager\Api\Repository\PathMapping;
 use Puli\Manager\Module\RootModuleFileConverter;
 use Puli\Manager\Tests\Discovery\Fixtures\Bar;
 use Puli\Manager\Tests\Discovery\Fixtures\Foo;
+use Puli\Repository\Discovery\ResourceBinding;
 use Rhumsaa\Uuid\Uuid;
 use Webmozart\Json\Versioning\JsonVersioner;
 
@@ -39,12 +39,6 @@ use Webmozart\Json\Versioning\JsonVersioner;
  */
 class RootModuleFileConverterTest extends PHPUnit_Framework_TestCase
 {
-    const BINDING_UUID1 = '2438256b-c2f5-4a06-a18f-f79755e027dd';
-
-    const BINDING_UUID2 = 'ff7bbf5a-44b1-4bdb-8397-e1c601ad7a2e';
-
-    const BINDING_UUID3 = '93fdf1a4-45b3-4a4e-80b5-77dc1137f5ae';
-
     /**
      * @var Config
      */
@@ -69,16 +63,15 @@ class RootModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
     public function testToJson()
     {
-        $type = new BindingType(Foo::clazz, array(
+        $type = new BindingType(Foo::clazz, ResourceBinding::class, array(
             new BindingParameter('param', BindingParameter::OPTIONAL, 1234),
         ));
 
-        $resourceBinding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob', Uuid::fromString(self::BINDING_UUID1));
-        $classBinding = new ClassBinding(__CLASS__, Bar::clazz, array(), Uuid::fromString(self::BINDING_UUID2));
+        $resourceBinding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob');
+        $classBinding = new ClassBinding(__CLASS__, Bar::clazz, array());
 
         $installInfo1 = new InstallInfo('vendor/module1', '/path/to/module1');
         $installInfo1->setInstallerName('composer');
-        $installInfo1->addDisabledBindingUuid(Uuid::fromString(self::BINDING_UUID3));
         $installInfo2 = new InstallInfo('vendor/module2', '/path/to/module2');
         $installInfo2->setEnvironment(Environment::DEV);
 
@@ -119,12 +112,12 @@ class RootModuleFileConverterTest extends PHPUnit_Framework_TestCase
                 '/app' => 'res',
             ),
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
+                0 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
                     'query' => '/app/config*.yml',
                     'type' => Foo::clazz,
                 ),
-                self::BINDING_UUID2 => (object) array(
+                1 => (object) array(
                     '_class' => 'Puli\Discovery\Binding\ClassBinding',
                     'class' => __CLASS__,
                     'type' => Bar::clazz,
@@ -177,9 +170,6 @@ class RootModuleFileConverterTest extends PHPUnit_Framework_TestCase
                 'vendor/module1' => (object) array(
                     'install-path' => '/path/to/module1',
                     'installer' => 'composer',
-                    'disabled-bindings' => array(
-                        self::BINDING_UUID3,
-                    ),
                 ),
                 'vendor/module2' => (object) array(
                     'install-path' => '/path/to/module2',
@@ -295,15 +285,15 @@ class RootModuleFileConverterTest extends PHPUnit_Framework_TestCase
                 '/app' => 'res',
             ),
             'bindings' => (object) array(
-                self::BINDING_UUID1 => (object) array(
-                    '_class' => 'Puli\Discovery\Binding\ResourceBinding',
-                    'query' => '/app/config*.yml',
-                    'type' => Foo::clazz,
-                ),
-                self::BINDING_UUID2 => (object) array(
+                0 => (object) array(
                     '_class' => 'Puli\Discovery\Binding\ClassBinding',
                     'class' => __CLASS__,
                     'type' => Bar::clazz,
+                ),
+                1 => (object) array(
+                    '_class' => 'Puli\Repository\Discovery\ResourceBinding',
+                    'query' => '/app/config*.yml',
+                    'type' => Foo::clazz,
                 ),
             ),
             'binding-types' => (object) array(
@@ -353,9 +343,6 @@ class RootModuleFileConverterTest extends PHPUnit_Framework_TestCase
                 'vendor/module1' => (object) array(
                     'install-path' => '/path/to/module1',
                     'installer' => 'composer',
-                    'disabled-bindings' => array(
-                        self::BINDING_UUID3,
-                    ),
                 ),
                 'vendor/module2' => (object) array(
                     'install-path' => '/path/to/module2',
@@ -376,16 +363,15 @@ class RootModuleFileConverterTest extends PHPUnit_Framework_TestCase
 
         $installInfo1 = new InstallInfo('vendor/module1', '/path/to/module1');
         $installInfo1->setInstallerName('composer');
-        $installInfo1->addDisabledBindingUuid(Uuid::fromString(self::BINDING_UUID3));
         $installInfo2 = new InstallInfo('vendor/module2', '/path/to/module2');
         $installInfo2->setEnvironment(Environment::DEV);
 
-        $type = new BindingType(Foo::clazz, array(
+        $type = new BindingType(Foo::clazz, ResourceBinding::class, array(
             new BindingParameter('param', BindingParameter::OPTIONAL, 1234),
         ));
 
-        $resourceBinding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob', Uuid::fromString(self::BINDING_UUID1));
-        $classBinding = new ClassBinding(__CLASS__, Bar::clazz, array(), Uuid::fromString(self::BINDING_UUID2));
+        $resourceBinding = new ResourceBinding('/app/config*.yml', Foo::clazz, array(), 'glob');
+        $classBinding = new ClassBinding(__CLASS__, Bar::clazz, array());
 
         $this->assertInstanceOf('Puli\Manager\Api\Module\RootModuleFile', $moduleFile);
 
